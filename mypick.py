@@ -93,6 +93,6 @@ if uploaded_files:
 
     for index, cluster in enumerate(face_cluster):
         faces = [FACES['face_image'][index] for index in cluster]
-        st.write("Person-", index)
+        st.write("Person-", index+1)
         show_images(faces)
         components.html("<hr><hr>")
