@@ -5,6 +5,13 @@ from PIL import Image
 import streamlit.components.v1 as components
 import numpy as np
 
+
+def nd21(val):
+    temp = val.flatten()
+    temp = ''.join(str(e) for e in temp)
+    return temp
+
+
 # Title
 st.title("MyPick")
 st.subheader("Project on Face Recognition and Grouping")
@@ -24,6 +31,10 @@ st.sidebar.write("**Semester:** 8")
 st.sidebar.info(
     "A Project based on Face Detection and Grouping to separate the individuals images")
 
+st.sidebar.write("**Tolerance Value**")
+tolerance = st.sidebar.slider(
+    "Less Value - More strict comparision", min_value=0, max_value=100, value=60)
+
 uploaded_files = st.file_uploader("Upload all the images",
                                   accept_multiple_files=True, type=['jpg', 'jpeg', 'png'])
 
@@ -31,6 +42,9 @@ if uploaded_files:
     all_face_enc = []
     new_faces = []
     duplicate_faces = []
+    img_dict = {}
+    enc_record = {}
+
     for img in uploaded_files:
 
         img1 = Image.open(img)
@@ -39,29 +53,47 @@ if uploaded_files:
         locations = fr.face_locations(rgb_img1)
 
         for (top, right, bottom, left), face in zip(locations, all):
+            cropped_img = rgb_img1[top:bottom, left:right]
+            bgr_img1 = cv2.cvtColor(cropped_img, cv2.COLOR_RGB2BGR)
+            temp = nd21(face)
+            enc_record[temp] = bgr_img1
+
+        for (top, right, bottom, left), face in zip(locations, all):
 
             cv2.rectangle(rgb_img1, (left, top),
                           (right, bottom), (0, 0, 255), 2)
 
             cropped_img = rgb_img1[top:bottom, left:right]
-            # st.write("The length of Array is", len(new_faces))
+            bgr_img1 = cv2.cvtColor(cropped_img, cv2.COLOR_RGB2BGR)
+
             if len(all_face_enc) == 0:
-                bgr_img1 = cv2.cvtColor(cropped_img, cv2.COLOR_RGB2BGR)
-                # st.image(bgr_img1, width=500)
                 new_faces.append(bgr_img1)
+                img_dict[nd21(bgr_img1)] = list(bgr_img1)
             else:
-                result = fr.compare_faces(all_face_enc, face)
+                result = fr.compare_faces(
+                    all_face_enc, face, tolerance=tolerance/100)
+                print("List is ", result)
                 if not any(result):
-                    bgr_img1 = cv2.cvtColor(cropped_img, cv2.COLOR_RGB2BGR)
                     new_faces.append(bgr_img1)
+                    img_dict[nd21(bgr_img1)] = list(bgr_img1)
                 else:
-                    bgr_img1 = cv2.cvtColor(cropped_img, cv2.COLOR_RGB2BGR)
+                    ind = result.index(True)
+                    matched_face = enc_record[nd21(all_face_enc[ind])]
+                    img_dict[nd21(matched_face)].append(bgr_img1)
                     duplicate_faces.append(bgr_img1)
 
             all_face_enc.append(face)
 
     cnt = len(new_faces)
     st.write('Total {} faces found in the image'.format(cnt))
+
+    for (key, value) in img_dict.items():
+        st.image(key, width=200)
+        components.html("<hr>")
+        for imgs in value:
+            st.image(imgs, width=100)
+        components.html("<hr><hr><hr>")
+
     st.header("Unique Faces")
     for unique in new_faces:
         st.image(unique, width=100)
